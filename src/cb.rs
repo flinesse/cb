@@ -55,14 +55,26 @@ impl<T: Clone, const CAP: usize> CircBuffer<T, CAP> {
     }
 
     pub fn get(&self, idx: usize) -> Option<&T> {
-        todo!();
+        if idx >= self.len() {
+            None
+        } else {
+            Some(self.read_at(idx))
+        }
     }
 
     pub fn peek(&self) -> Option<&T> {
-        todo!();
+        if !self.is_empty() {
+            Some(self.read())
+        } else {
+            None
+        }
     }
 
-    // TODO: Iterator
+    pub fn clear(&mut self) {
+        self.store.clear();
+        self.r_idx = 0;
+        self.w_idx = 0;
+    }
 }
 
 // Private methods to make working with underlying data store a bit nicer
@@ -79,5 +91,10 @@ impl<T: Clone, const CAP: usize> CircBuffer<T, CAP> {
     #[inline]
     fn read(&self) -> &T {
         &self.store[self.r_idx % CAP]
+    }
+
+    #[inline]
+    fn read_at(&self, offset: usize) -> &T {
+        &self.store[(self.r_idx + offset) % CAP]
     }
 }
