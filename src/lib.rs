@@ -105,5 +105,33 @@ mod tests {
     }
 
     #[test]
-    fn iter() {}
+    fn iter() {
+        let mut cb: CircBuffer<i32, 100> = CircBuffer::new();
+        while !cb.is_full() {
+            cb.push(10);
+        }
+        for val in cb {
+            assert_eq!(val, 10);
+        }
+
+        let mut cb: CircBuffer<i32, 100> = CircBuffer::new();
+        while !cb.is_full() {
+            cb.push(10);
+        }
+        for val in cb.iter() {
+            assert_eq!(*val, 10);
+        }
+        assert_eq!(cb.len(), 100);
+        assert!(cb.is_full());
+
+        let mut cb: CircBuffer<i32, 20> = CircBuffer::new();
+        for i in 0..100 {
+            cb.push(i);
+        }
+        for (i, val) in cb.drain().enumerate() {
+            assert_eq!(i as i32 + 80, val);
+        }
+        assert_eq!(cb.len(), 0);
+        assert!(cb.is_empty());
+    }
 }

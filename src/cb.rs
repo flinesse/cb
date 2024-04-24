@@ -70,10 +70,81 @@ impl<T: Clone, const CAP: usize> CircBuffer<T, CAP> {
         }
     }
 
+    pub fn iter(&self) -> CircBufferIterator<T, CAP> {
+        CircBufferIterator::new(self)
+    }
+
+    pub fn drain(&mut self) -> CircBufferDrain<T, CAP> {
+        CircBufferDrain::new(self)
+    }
+
     pub fn clear(&mut self) {
         self.store.clear();
         self.r_idx = 0;
         self.w_idx = 0;
+    }
+}
+
+impl<T: Clone, const CAP: usize> Iterator for CircBuffer<T, CAP> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.pull()
+    }
+}
+
+pub struct CircBufferIterator<'cb, T: Clone, const CAP: usize> {
+    obj: &'cb CircBuffer<T, CAP>,
+    idx: usize,
+    len: usize,
+}
+
+impl<'cb, T: Clone, const CAP: usize> CircBufferIterator<'cb, T, CAP> {
+    pub fn new(obj: &'cb CircBuffer<T, CAP>) -> Self {
+        CircBufferIterator {
+            obj,
+            idx: 0,
+            len: obj.len(),
+        }
+    }
+}
+
+impl<'cb, T: Clone, const CAP: usize> Iterator for CircBufferIterator<'cb, T, CAP> {
+    type Item = &'cb T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.idx < self.len {
+            self.idx += 1;
+            Some(self.obj.read_at(self.idx))
+        } else {
+            None
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.obj.len(), Some(self.obj.len()))
+    }
+}
+
+pub struct CircBufferDrain<'cb, T: Clone, const CAP: usize> {
+    obj: &'cb mut CircBuffer<T, CAP>,
+}
+
+impl<'cb, T: Clone, const CAP: usize> CircBufferDrain<'cb, T, CAP> {
+    pub fn new(obj: &'cb mut CircBuffer<T, CAP>) -> Self {
+        CircBufferDrain { obj }
+    }
+}
+
+impl<'cb, T: Clone, const CAP: usize> Iterator for CircBufferDrain<'cb, T, CAP> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.obj.pull()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.obj.len(), Some(self.obj.len()))
     }
 }
 
