@@ -10,6 +10,7 @@ pub struct CircBuffer<T: Clone, const CAP: usize> {
 }
 
 impl<T: Clone, const CAP: usize> CircBuffer<T, CAP> {
+    /// Constructs a new, empty `CircBuffer<T>` with capacity `CAP`.
     pub fn new() -> Self {
         CircBuffer {
             store: Buffer::new(),
@@ -18,23 +19,30 @@ impl<T: Clone, const CAP: usize> CircBuffer<T, CAP> {
         }
     }
 
+    /// Returns the capacity of the buffer.
     pub fn capacity(&self) -> usize {
         CAP
     }
 
+    /// Returns the current number of elements queued and ready to be read.
     pub fn len(&self) -> usize {
-        let (delta, _) = self.w_idx.overflowing_sub(self.r_idx);
-        delta
+        self.w_idx - self.r_idx
     }
 
+    /// Returns whether the buffer has items available to be dequeued. (`len() == 0`)
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
+    /// Returns whether the buffer has reached its capacity. (`len() == capacity()`)
     pub fn is_full(&self) -> bool {
         self.len() == self.capacity()
     }
 
+    /// Pushes `val` onto the buffer. If the capacity is reached, this wraps around and overwrites the oldest data.
+    // FIX: In the unlikely event that `push()` or `pull()` is invoked
+    //      `usize::MAX` number of times and the internal write or read
+    //      indices wrap, `CircBuffer` may become invalid
     pub fn push(&mut self, val: T) {
         if self.is_full() {
             self.r_idx += 1;
@@ -44,6 +52,10 @@ impl<T: Clone, const CAP: usize> CircBuffer<T, CAP> {
         self.w_idx += 1;
     }
 
+    /// Pulls the next item to be read off the head of the queue. Returns `None` if the queue is empty.
+    // FIX: In the unlikely event that `push()` or `pull()` is invoked
+    //      `usize::MAX` number of times and the internal write or read
+    //      indices wrap, `CircBuffer` may become invalid
     pub fn pull(&mut self) -> Option<T> {
         if !self.is_empty() {
             let val = self.read().clone();
@@ -54,14 +66,16 @@ impl<T: Clone, const CAP: usize> CircBuffer<T, CAP> {
         }
     }
 
+    /// Returns a reference to the item at `idx`, where `idx` is the offset to the next item to be read. (0 <= `idx` < len())
     pub fn get(&self, idx: usize) -> Option<&T> {
-        if idx >= self.len() {
-            None
-        } else {
+        if !self.is_empty() && idx < self.len() {
             Some(self.read_at(idx))
+        } else {
+            None
         }
     }
 
+    /// Returns a reference to the next item to be read, `None` if the queue is empty. (equivalent to `get(0)`)
     pub fn peek(&self) -> Option<&T> {
         if !self.is_empty() {
             Some(self.read())
@@ -70,21 +84,46 @@ impl<T: Clone, const CAP: usize> CircBuffer<T, CAP> {
         }
     }
 
+    /// Returns an iterator over the references of elements on the queue.
     pub fn iter(&self) -> CircBufferIterator<T, CAP> {
         CircBufferIterator::new(self)
     }
 
+    /// Returns an iterator over elements on the queue, dequeuing them as the iterator yields.
     pub fn drain(&mut self) -> CircBufferDrain<T, CAP> {
         CircBufferDrain::new(self)
     }
 
+    /// Clear the buffer
     pub fn clear(&mut self) {
         self.store.clear();
         self.r_idx = 0;
         self.w_idx = 0;
     }
+
+    /* Below are private methods to make working with the underlying data store (`ArrayVec`) a bit nicer */
+
+    #[inline]
+    fn read(&self) -> &T {
+        &self.store[self.r_idx % CAP]
+    }
+
+    #[inline]
+    fn read_at(&self, offset: usize) -> &T {
+        &self.store[(self.r_idx + offset) % CAP]
+    }
+
+    #[inline]
+    fn write(&mut self, val: T) {
+        if self.store.is_full() {
+            self.store[self.w_idx % CAP] = val;
+        } else {
+            self.store.push(val);
+        }
+    }
 }
 
+// Consuming iterator over `CircBuffer`
 impl<T: Clone, const CAP: usize> Iterator for CircBuffer<T, CAP> {
     type Item = T;
 
@@ -99,6 +138,7 @@ pub struct CircBufferIterator<'cb, T: Clone, const CAP: usize> {
     len: usize,
 }
 
+// Non-consuming and non-draining iterator over `CircBuffer`
 impl<'cb, T: Clone, const CAP: usize> CircBufferIterator<'cb, T, CAP> {
     pub fn new(obj: &'cb CircBuffer<T, CAP>) -> Self {
         CircBufferIterator {
@@ -126,6 +166,7 @@ impl<'cb, T: Clone, const CAP: usize> Iterator for CircBufferIterator<'cb, T, CA
     }
 }
 
+// Non-consuming and draining iterator over `CircBuffer`
 pub struct CircBufferDrain<'cb, T: Clone, const CAP: usize> {
     obj: &'cb mut CircBuffer<T, CAP>,
 }
@@ -145,27 +186,5 @@ impl<'cb, T: Clone, const CAP: usize> Iterator for CircBufferDrain<'cb, T, CAP> 
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         (self.obj.len(), Some(self.obj.len()))
-    }
-}
-
-// Private methods to make working with underlying data store a bit nicer
-impl<T: Clone, const CAP: usize> CircBuffer<T, CAP> {
-    #[inline]
-    fn write(&mut self, val: T) {
-        if self.store.is_full() {
-            self.store[self.w_idx % CAP] = val;
-        } else {
-            self.store.push(val);
-        }
-    }
-
-    #[inline]
-    fn read(&self) -> &T {
-        &self.store[self.r_idx % CAP]
-    }
-
-    #[inline]
-    fn read_at(&self, offset: usize) -> &T {
-        &self.store[(self.r_idx + offset) % CAP]
     }
 }

@@ -63,13 +63,12 @@ mod tests {
         assert_eq!(cb.pull(), Some(4));
         cb.push(101);
         cb.push(102);
-        let l = cb.len();
+        assert_eq!(cb.len(), 20);
 
         assert!(cb.is_full());
-        cb.push(103); // circles around and overwrites the head
+        cb.push(103);
         assert_eq!(cb.len(), 20);
-        assert_eq!(cb.len(), l);
-        assert_eq!(cb.pull(), Some(6)); // 5 was dropped
+        assert_eq!(cb.pull(), Some(6));
         assert_eq!(cb.len(), 19);
 
         cb.clear();
@@ -91,6 +90,7 @@ mod tests {
         assert_eq!(*cb.get(2).unwrap(), '∞');
         assert_eq!(*cb.get(3).unwrap(), '🦀');
         assert_eq!(cb.get(4), None);
+        assert!(cb.is_full());
 
         assert_eq!(*cb.peek().unwrap(), 'a');
         assert_eq!(cb.pull(), Some('a'));
@@ -114,14 +114,14 @@ mod tests {
             assert_eq!(val, 10);
         }
 
-        let mut cb: CircBuffer<i32, 100> = CircBuffer::new();
+        let mut cb: CircBuffer<i32, 50> = CircBuffer::new();
         while !cb.is_full() {
             cb.push(10);
         }
         for val in cb.iter() {
             assert_eq!(*val, 10);
         }
-        assert_eq!(cb.len(), 100);
+        assert_eq!(cb.len(), 50);
         assert!(cb.is_full());
 
         let mut cb: CircBuffer<i32, 20> = CircBuffer::new();
