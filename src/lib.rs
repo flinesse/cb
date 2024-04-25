@@ -1,4 +1,7 @@
 mod cb;
+mod unsafe_cb;
+
+pub use cb::CircBuffer;
 
 #[cfg(test)]
 mod tests {
